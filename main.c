@@ -44,9 +44,18 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
   Graphics_Init(fb_base, width, height, ppsl);
 
+  uint64_t lapic_addr = 0xFEE00000; // Default
+  if (rsdp) {
+    MADT *madt = (MADT *)ACPI_FindTable("APIC");
+    if (madt) {
+      lapic_addr = madt->LocalApicAddress;
+    }
+  }
+
   // Initialize 4-level Page Table with minimal mappings
   PageTable_Init(image_base, image_size, (void *)fb_base,
-                 (uint64_t)ppsl * height * 4, map, map_size, desc_size);
+                 (uint64_t)ppsl * height * 4, map, map_size, desc_size,
+                 lapic_addr);
 
   // Initialize Heap (e.g., 16MB)
   void *heap_addr = PageAllocator_Alloc(4096); // 4096 * 4KB = 16MB
@@ -109,6 +118,9 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       // Initialize LAPIC
       LAPIC_Init((void *)(uintptr_t)madt->LocalApicAddress);
 
+      // Register Timer Handler
+      Interrupt_RegisterHandler(INT_TIMER, Timer_Handler);
+
       // Calibrate Timer (get ticks per 10ms)
       uint32_t ticks_10ms = LAPIC_CalibrateTimer();
       // Initialize Timer for 1ms intervals
@@ -123,12 +135,9 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
   } else {
     Graphics_Print(100, 350, "RSDP NOT FOUND", 0xDC322F); // Red
   }
-
+  Graphics_Print(100, 500, "TICKS: ", 0x268BD2);
+  Graphics_PrintHex(200, 500, Timer_GetTicks(), 0x268BD2);
   while (1) {
-    Graphics_Print(100, 500, "TICKS: ", 0x268BD2);
-    Graphics_PrintHex(200, 500, Timer_GetTicks(), 0x268BD2);
-    for (int i = 0; i < 1000000; i++)
-      asm("pause"); // Simple delay for visibility
   }
 }
 

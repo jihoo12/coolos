@@ -1,9 +1,11 @@
 #include "interrupt.h"
 #include "gdt.h"
 #include "graphics.h"
+#include <stddef.h>
 
 static IDTEntry idt[256];
 static IDTPointer idt_ptr;
+static InterruptHandler handler_table[256];
 
 const char *exception_messages[] = {"Division By Zero",
                                     "Debug",
@@ -26,16 +28,16 @@ const char *exception_messages[] = {"Division By Zero",
                                     "Machine Check",
                                     "SIMD Floating Point Exception",
                                     "Virtualization Exception",
+                                    "Control Protection Exception", // 21
                                     "Reserved",
                                     "Reserved",
                                     "Reserved",
                                     "Reserved",
                                     "Reserved",
                                     "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Security Exception",
+                                    "Hypervisor Injection Exception", // 28
+                                    "VMM Communication Exception",    // 29
+                                    "Security Exception",             // 30
                                     "Reserved"};
 
 extern void isr0();
@@ -59,7 +61,17 @@ extern void isr17();
 extern void isr18();
 extern void isr19();
 extern void isr20();
+extern void isr21();
+extern void isr22();
+extern void isr23();
+extern void isr24();
+extern void isr25();
+extern void isr26();
+extern void isr27();
+extern void isr28();
+extern void isr29();
 extern void isr30();
+extern void isr31();
 extern void isr64(); // Vector 0x40
 extern void isr_generic();
 
@@ -75,11 +87,13 @@ void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
   idt[vector].zero = 0;
 }
 
+void Interrupt_RegisterHandler(uint8_t vector, InterruptHandler handler) {
+  handler_table[vector] = handler;
+}
+
 void ExceptionHandler(InterruptFrame *frame) {
-  if (frame->int_no == 64) {
-    // LAPIC Timer Interrupt
-    extern void Timer_Handler();
-    Timer_Handler();
+  if (handler_table[frame->int_no]) {
+    handler_table[frame->int_no](frame);
     return;
   }
 
@@ -140,7 +154,18 @@ ISR_ERR(17)
 ISR_NOERR(18)
 ISR_NOERR(19)
 ISR_NOERR(20)
+ISR_ERR(21)
+ISR_NOERR(22)
+ISR_NOERR(23)
+ISR_NOERR(24)
+ISR_NOERR(25)
+ISR_NOERR(26)
+ISR_NOERR(27)
+ISR_NOERR(28)
+ISR_ERR(29)
 ISR_ERR(30)
+ISR_NOERR(31)
+
 ISR_NOERR(64) // Vector 0x40
 
 asm(".global isr_generic\n"
@@ -192,6 +217,7 @@ asm("isr_common:\n"
 void IDT_Init() {
   for (int i = 0; i < 256; i++) {
     IDT_SetGate(i, isr_generic, KERNEL_CODE_SEL, 0x8E);
+    handler_table[i] = NULL;
   }
 
   // Type 0x8E = 1000 1110 (Present, DPL 0, Interrupt Gate)
@@ -216,7 +242,18 @@ void IDT_Init() {
   IDT_SetGate(18, isr18, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(19, isr19, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(20, isr20, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(21, isr21, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(22, isr22, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(23, isr23, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(24, isr24, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(25, isr25, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(26, isr26, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(27, isr27, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(28, isr28, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(29, isr29, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(30, isr30, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(31, isr31, KERNEL_CODE_SEL, 0x8E);
+
   IDT_SetGate(64, isr64, KERNEL_CODE_SEL, 0x8E); // Vector 0x40
 
   idt_ptr.limit = sizeof(idt) - 1;

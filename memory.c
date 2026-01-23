@@ -142,7 +142,7 @@ void PageTable_UnMap(PageTable *pml4, void *virt) {
 
 void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
                     uint64_t fb_size, EFI_MEMORY_DESCRIPTOR *map,
-                    UINTN map_size, UINTN desc_size) {
+                    UINTN map_size, UINTN desc_size, uint64_t lapic_addr) {
   PageTable *pml4 = (PageTable *)PageAllocator_Alloc(1);
   for (int i = 0; i < 512; i++)
     pml4->entries[i] = 0;
@@ -175,8 +175,12 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
     PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
   }
 
-  // 3. Map LAPIC (usually 0xFEE00000) and IOAPIC (usually 0xFEC00000)
-  for (uint64_t addr = 0xFEC00000; addr < 0xFEF00000; addr += PAGE_SIZE) {
+  // 3. Map LAPIC and IOAPIC (usually 0xFEC00000)
+  if (lapic_addr) {
+    PageTable_Map(pml4, (void *)lapic_addr, (void *)lapic_addr, PAGE_WRITABLE);
+  }
+  // Common IOAPIC range
+  for (uint64_t addr = 0xFEC00000; addr < 0xFEC01000; addr += PAGE_SIZE) {
     PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
   }
 

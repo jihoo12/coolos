@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define INT_TIMER 0x40
+
 typedef struct {
   uint16_t offset_low;
   uint16_t selector;
@@ -25,10 +27,13 @@ typedef struct {
   uint64_t rip, cs, rflags, rsp, ss;
 } InterruptFrame;
 
+typedef void (*InterruptHandler)(InterruptFrame *frame);
+
 extern const char *exception_messages[];
 
 void IDT_Init();
 void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
                  uint8_t type_attr);
+void Interrupt_RegisterHandler(uint8_t vector, InterruptHandler handler);
 
 #endif
