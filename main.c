@@ -70,11 +70,16 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
   // Heap Test
   void *ptr1 = kmalloc(100);
   void *ptr2 = kmalloc(200);
-  if (ptr1 && ptr2) {
+  void *ptr3 = kmalloc_aligned(1024, 4096); // Page aligned
+  if (ptr1 && ptr2 && ptr3) {
     Graphics_Print(100, 275, "HEAP ALLOC SUCCESS", 0x268BD2);
+    if (((uintptr_t)ptr3 % 4096) == 0) {
+      Graphics_Print(100, 300, "ALIGNED ALLOC SUCCESS", 0x268BD2);
+    }
     kfree(ptr1);
     kfree(ptr2);
-    Graphics_Print(100, 300, "HEAP FREE SUCCESS", 0x268BD2);
+    kfree(ptr3);
+    Graphics_Print(100, 325, "HEAP FREE SUCCESS", 0x268BD2);
   }
 
   while (1)

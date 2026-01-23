@@ -14,7 +14,10 @@ void PageAllocator_Init(EFI_MEMORY_DESCRIPTOR *map, UINTN map_size,
   void *map_end = (void *)((uint8_t *)map + map_size);
 
   while ((void *)entry < map_end) {
-    if (entry->Type == EfiConventionalMemory) {
+    if (entry->Type == EfiConventionalMemory ||
+        entry->Type == EfiBootServicesCode ||
+        entry->Type == EfiBootServicesData || entry->Type == EfiLoaderCode ||
+        entry->Type == EfiLoaderData) {
       uint64_t start_page = entry->PhysicalStart / PAGE_SIZE;
       uint64_t num_pages = entry->NumberOfPages;
 
@@ -45,7 +48,7 @@ void *PageAllocator_Alloc(UINTN pages) {
   if (pages == 0)
     return NULL;
 
-  for (uint64_t i = 0; i <= total_pages - pages; i++) {
+  for (uint64_t i = 1; i <= total_pages - pages; i++) {
     uint64_t found = 0;
     for (uint64_t j = 0; j < pages; j++) {
       if (bitmap[(i + j) / 8] & (1 << ((i + j) % 8))) {

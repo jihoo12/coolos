@@ -25,6 +25,8 @@ typedef struct {
   uint64_t rip, cs, rflags, rsp, ss;
 } InterruptFrame;
 
+extern const char *exception_messages[];
+
 void IDT_Init();
 void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
                  uint8_t type_attr);

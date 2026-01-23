@@ -5,11 +5,61 @@
 static IDTEntry idt[256];
 static IDTPointer idt_ptr;
 
+const char *exception_messages[] = {"Division By Zero",
+                                    "Debug",
+                                    "Non Maskable Interrupt",
+                                    "Breakpoint",
+                                    "Into Detected Overflow",
+                                    "Out of Bounds",
+                                    "Invalid Opcode",
+                                    "No Coprocessor",
+                                    "Double Fault",
+                                    "Coprocessor Segment Overrun",
+                                    "Bad TSS",
+                                    "Segment Not Present",
+                                    "Stack Fault",
+                                    "General Protection Fault",
+                                    "Page Fault",
+                                    "Unknown Interrupt",
+                                    "Coprocessor Fault",
+                                    "Alignment Check",
+                                    "Machine Check",
+                                    "SIMD Floating Point Exception",
+                                    "Virtualization Exception",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Reserved",
+                                    "Security Exception",
+                                    "Reserved"};
+
 extern void isr0();
+extern void isr1();
+extern void isr2();
+extern void isr3();
+extern void isr4();
+extern void isr5();
 extern void isr6();
+extern void isr7();
 extern void isr8();
+extern void isr9();
+extern void isr10();
+extern void isr11();
+extern void isr12();
 extern void isr13();
 extern void isr14();
+extern void isr15();
+extern void isr16();
+extern void isr17();
+extern void isr18();
+extern void isr19();
+extern void isr20();
+extern void isr30();
 
 void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
                  uint8_t type_attr) {
@@ -26,44 +76,62 @@ void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
 void ExceptionHandler(InterruptFrame *frame) {
   Graphics_Clear(0x3B5998); // Blue screenish
   Graphics_Print(100, 100, "EXCEPTION OCCURRED!", 0xFFFFFF);
-  Graphics_Print(100, 130, "Interrupt No: ", 0xFFFFFF);
-  Graphics_PrintHex(250, 130, frame->int_no, 0xFFFFFF);
+  Graphics_Print(100, 130, "Interrupt: ", 0xFFFFFF);
+  if (frame->int_no < 32) {
+    Graphics_Print(250, 130, exception_messages[frame->int_no], 0xFFFFFF);
+  } else {
+    Graphics_PrintHex(250, 130, frame->int_no, 0xFFFFFF);
+  }
+
   Graphics_Print(100, 160, "Error Code: ", 0xFFFFFF);
   Graphics_PrintHex(250, 160, frame->err_code, 0xFFFFFF);
   Graphics_Print(100, 190, "RIP: ", 0xFFFFFF);
   Graphics_PrintHex(250, 190, frame->rip, 0xFFFFFF);
+  Graphics_Print(100, 220, "RAX: ", 0xFFFFFF);
+  Graphics_PrintHex(250, 220, frame->rax, 0xFFFFFF);
+  Graphics_Print(100, 250, "RSP: ", 0xFFFFFF);
+  Graphics_PrintHex(250, 250, frame->rsp, 0xFFFFFF);
 
   while (1)
     asm("hlt");
 }
 
 // Assembly stubs
-asm(".global isr0\n"
-    "isr0:\n"
-    "  pushq $0\n" // dummy error code
-    "  pushq $0\n" // int no
-    "  jmp isr_common\n");
+#define ISR_NOERR(n)                                                           \
+  asm(".global isr" #n "\n"                                                    \
+      "isr" #n ":\n"                                                           \
+      "  pushq $0\n"                                                           \
+      "  pushq $" #n "\n"                                                      \
+      "  jmp isr_common\n");
 
-asm(".global isr6\n"
-    "isr6:\n"
-    "  pushq $0\n" // dummy error code
-    "  pushq $6\n" // int no
-    "  jmp isr_common\n");
+#define ISR_ERR(n)                                                             \
+  asm(".global isr" #n "\n"                                                    \
+      "isr" #n ":\n"                                                           \
+      "  pushq $" #n "\n"                                                      \
+      "  jmp isr_common\n");
 
-asm(".global isr8\n"
-    "isr8:\n"
-    "  pushq $8\n" // int no (error code already pushed by CPU)
-    "  jmp isr_common\n");
-
-asm(".global isr13\n"
-    "isr13:\n"
-    "  pushq $13\n" // int no (error code already pushed by CPU)
-    "  jmp isr_common\n");
-
-asm(".global isr14\n"
-    "isr14:\n"
-    "  pushq $14\n" // int no (error code already pushed by CPU)
-    "  jmp isr_common\n");
+ISR_NOERR(0)
+ISR_NOERR(1)
+ISR_NOERR(2)
+ISR_NOERR(3)
+ISR_NOERR(4)
+ISR_NOERR(5)
+ISR_NOERR(6)
+ISR_NOERR(7)
+ISR_ERR(8)
+ISR_NOERR(9)
+ISR_ERR(10)
+ISR_ERR(11)
+ISR_ERR(12)
+ISR_ERR(13)
+ISR_ERR(14)
+ISR_NOERR(15)
+ISR_NOERR(16)
+ISR_ERR(17)
+ISR_NOERR(18)
+ISR_NOERR(19)
+ISR_NOERR(20)
+ISR_ERR(30)
 
 asm("isr_common:\n"
     "  pushq %rax\n"
@@ -82,9 +150,11 @@ asm("isr_common:\n"
     "  pushq %r14\n"
     "  pushq %r15\n"
     "  movq %rsp, %rcx\n" // First argument for Windows x64 ABI is RCX
+    "  movq %rsp, %rbp\n" // Save RSP
+    "  andq $-16, %rsp\n" // 16-byte align
     "  subq $32, %rsp\n"  // Shadow space for Windows ABI
     "  call ExceptionHandler\n"
-    "  addq $32, %rsp\n"
+    "  movq %rbp, %rsp\n" // Restore RSP
     "  popq %r15\n"
     "  popq %r14\n"
     "  popq %r13\n"
@@ -113,10 +183,27 @@ void IDT_Init() {
 
   // Type 0x8E = 1000 1110 (Present, DPL 0, Interrupt Gate)
   IDT_SetGate(0, isr0, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(1, isr1, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(2, isr2, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(3, isr3, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(4, isr4, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(5, isr5, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(6, isr6, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(7, isr7, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(8, isr8, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(9, isr9, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(10, isr10, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(11, isr11, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(12, isr12, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(13, isr13, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(14, isr14, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(15, isr15, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(16, isr16, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(17, isr17, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(18, isr18, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(19, isr19, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(20, isr20, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(30, isr30, KERNEL_CODE_SEL, 0x8E);
 
   idt_ptr.limit = sizeof(idt) - 1;
   idt_ptr.base = (uint64_t)&idt;
