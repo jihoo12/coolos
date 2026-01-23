@@ -1,6 +1,7 @@
 #include "efi.h"
 #include "gdt.h"
 #include "graphics.h"
+#include "interrupt.h"
 #include "memory.h"
 
 // Helper to print a hex number (very primitive)
@@ -28,6 +29,9 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
   // Initialize GDT
   GDT_Init();
+
+  // Initialize IDT
+  IDT_Init();
 
   Graphics_Init(fb_base, width, height, ppsl);
 
