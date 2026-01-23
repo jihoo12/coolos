@@ -2,6 +2,10 @@
 set -e
 
 # Compile
+# Actually, the user's run.sh might have a hardcoded clang command or just call make.
+# Looking at the previous run.sh view, line 5 is 'make'.
+# But the log showed a long clang command.
+# Let me just ensure Makefile is enough.
 make
 
 # Create directory structure

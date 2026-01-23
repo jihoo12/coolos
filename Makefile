@@ -4,8 +4,8 @@ LDFLAGS = -target x86_64-unknown-windows -fuse-ld=lld -nostdlib -Wl,-entry:EfiMa
 
 all: main.efi
 
-main.efi: main.c efi.h memory.c memory.h graphics.c graphics.h font.c font.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ main.c memory.c graphics.c font.c
+main.efi: main.c efi.h memory.c memory.h graphics.c graphics.h font.c font.h gdt.c gdt.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ main.c memory.c graphics.c font.c gdt.c
 
 clean:
 	rm -f main.efi

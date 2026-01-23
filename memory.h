@@ -14,4 +14,18 @@ void PageAllocator_MarkUsed(void *ptr, UINTN pages);
 void *PageAllocator_Alloc(UINTN pages);
 void PageAllocator_Free(void *ptr, UINTN pages);
 
+// 4-level Page Table
+typedef struct {
+  uint64_t entries[512];
+} PageTable;
+
+#define PAGE_PRESENT (1ULL << 0)
+#define PAGE_WRITABLE (1ULL << 1)
+#define PAGE_USER (1ULL << 2)
+
+void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
+                    uint64_t fb_size);
+void PageTable_Map(PageTable *pml4, void *virt, void *phys, uint64_t flags);
+void PageTable_UnMap(PageTable *pml4, void *virt);
+
 #endif

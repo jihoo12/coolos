@@ -1,4 +1,5 @@
 #include "efi.h"
+#include "gdt.h"
 #include "graphics.h"
 #include "memory.h"
 
@@ -25,7 +26,15 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
   // Protect the kernel binary area
   PageAllocator_MarkUsed(image_base, (image_size + 4095) / 4096);
 
+  // Initialize GDT
+  GDT_Init();
+
   Graphics_Init(fb_base, width, height, ppsl);
+
+  // Initialize 4-level Page Table with minimal mappings
+  PageTable_Init(image_base, image_size, (void *)fb_base,
+                 (uint64_t)ppsl * height * 4);
+
   Graphics_Clear(0xEEE8D5); // Solarized Light
   Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2); // Blue
   Graphics_Print(100, 150, "PAGES: ", 0x268BD2);
