@@ -24,8 +24,11 @@ typedef struct {
 #define PAGE_USER (1ULL << 2)
 
 void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
-                    uint64_t fb_size);
+                    uint64_t fb_size, EFI_MEMORY_DESCRIPTOR *map,
+                    UINTN map_size, UINTN desc_size);
 void PageTable_Map(PageTable *pml4, void *virt, void *phys, uint64_t flags);
 void PageTable_UnMap(PageTable *pml4, void *virt);
+
+#include "heap.h"
 
 #endif

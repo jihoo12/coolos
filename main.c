@@ -37,7 +37,13 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
   // Initialize 4-level Page Table with minimal mappings
   PageTable_Init(image_base, image_size, (void *)fb_base,
-                 (uint64_t)ppsl * height * 4);
+                 (uint64_t)ppsl * height * 4, map, map_size, desc_size);
+
+  // Initialize Heap (e.g., 16MB)
+  void *heap_addr = PageAllocator_Alloc(4096); // 4096 * 4KB = 16MB
+  if (heap_addr) {
+    Heap_Init(heap_addr, 4096 * 4096);
+  }
 
   Graphics_Clear(0xEEE8D5); // Solarized Light
   Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2); // Blue
@@ -60,6 +66,17 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
   uint64_t mb = (free_pages * 4096) / 1024 / 1024;
   Graphics_Print(100, 225, "FREE MB: ", 0x268BD2);
   Graphics_PrintHex(250, 225, mb, 0x268BD2);
+
+  // Heap Test
+  void *ptr1 = kmalloc(100);
+  void *ptr2 = kmalloc(200);
+  if (ptr1 && ptr2) {
+    Graphics_Print(100, 275, "HEAP ALLOC SUCCESS", 0x268BD2);
+    kfree(ptr1);
+    kfree(ptr2);
+    Graphics_Print(100, 300, "HEAP FREE SUCCESS", 0x268BD2);
+  }
+
   while (1)
     ;
 }

@@ -134,15 +134,27 @@ void PageTable_UnMap(PageTable *pml4, void *virt) {
 }
 
 void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
-                    uint64_t fb_size) {
+                    uint64_t fb_size, EFI_MEMORY_DESCRIPTOR *map,
+                    UINTN map_size, UINTN desc_size) {
   PageTable *pml4 = (PageTable *)PageAllocator_Alloc(1);
   for (int i = 0; i < 512; i++)
     pml4->entries[i] = 0;
 
-  // 1. Map Kernel binary
-  for (uint64_t addr = (uint64_t)kernel_base;
-       addr < (uint64_t)kernel_base + kernel_size; addr += PAGE_SIZE) {
-    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+  // 1. Map all usable physical memory (Identity Mapping)
+  EFI_MEMORY_DESCRIPTOR *entry = map;
+  void *map_end = (void *)((uint8_t *)map + map_size);
+
+  while ((void *)entry < map_end) {
+    if (entry->Type == EfiConventionalMemory || entry->Type == EfiLoaderCode ||
+        entry->Type == EfiLoaderData || entry->Type == EfiBootServicesCode ||
+        entry->Type == EfiBootServicesData) {
+      for (uint64_t addr = entry->PhysicalStart;
+           addr < entry->PhysicalStart + entry->NumberOfPages * PAGE_SIZE;
+           addr += PAGE_SIZE) {
+        PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+      }
+    }
+    entry = (EFI_MEMORY_DESCRIPTOR *)((uint8_t *)entry + desc_size);
   }
 
   // 2. Map Framebuffer
