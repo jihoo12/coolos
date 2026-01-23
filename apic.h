@@ -1,0 +1,33 @@
+#ifndef APIC_H
+#define APIC_H
+
+#include <stdint.h>
+
+#define LAPIC_REG_ID 0x0020
+#define LAPIC_REG_VER 0x0030
+#define LAPIC_REG_TPR 0x0080
+#define LAPIC_REG_EOI 0x00B0
+#define LAPIC_REG_LDR 0x00D0
+#define LAPIC_REG_DFR 0x00E0
+#define LAPIC_REG_SIVR 0x00F0
+#define LAPIC_REG_ESR 0x0280
+#define LAPIC_REG_LVT_TIMER 0x0320
+#define LAPIC_REG_LVT_THERMAL 0x0330
+#define LAPIC_REG_LVT_PERF 0x0340
+#define LAPIC_REG_LVT_LINT0 0x0350
+#define LAPIC_REG_LVT_LINT1 0x0360
+#define LAPIC_REG_LVT_ERROR 0x0370
+#define LAPIC_REG_TICR 0x0380
+#define LAPIC_REG_TCCR 0x0390
+#define LAPIC_REG_TDCR 0x03E0
+
+#define LAPIC_TIMER_PERIODIC 0x00020000
+#define LAPIC_TIMER_ONESHOT 0x00000000
+#define LAPIC_TIMER_MASKED 0x00010000
+
+void LAPIC_Init(void *base);
+uint32_t LAPIC_CalibrateTimer();
+void LAPIC_TimerInit(uint32_t count);
+void LAPIC_SendEOI(void);
+
+#endif

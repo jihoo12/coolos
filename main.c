@@ -1,8 +1,12 @@
+#include "acpi.h"
+#include "apic.h"
 #include "efi.h"
 #include "gdt.h"
 #include "graphics.h"
 #include "interrupt.h"
+#include "libc.h"
 #include "memory.h"
+#include "timer.h"
 
 // Helper to print a hex number (very primitive)
 void PrintHex(EFI_SYSTEM_TABLE *SystemTable, uint64_t val) {
@@ -21,11 +25,16 @@ void PrintHex(EFI_SYSTEM_TABLE *SystemTable, uint64_t val) {
 void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
                 uint32_t ppsl, UINTN map_size, EFI_MEMORY_DESCRIPTOR *map,
                 UINTN map_key, UINTN desc_size, uint32_t desc_ver,
-                void *image_base, uint64_t image_size) {
+                void *image_base, uint64_t image_size, RSDP *rsdp) {
 
   PageAllocator_Init(map, map_size, desc_size);
   // Protect the kernel binary area
   PageAllocator_MarkUsed(image_base, (image_size + 4095) / 4096);
+
+  // Initialize ACPI
+  if (rsdp) {
+    ACPI_Init(rsdp);
+  }
 
   // Initialize GDT
   GDT_Init();
@@ -82,8 +91,45 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
     Graphics_Print(100, 325, "HEAP FREE SUCCESS", 0x268BD2);
   }
 
-  while (1)
-    ;
+  if (rsdp) {
+    Graphics_Print(100, 350, "RSDP FOUND AT: ", 0x268BD2);
+    Graphics_PrintHex(300, 350, (uintptr_t)rsdp, 0x268BD2);
+
+    FADT *fadt = (FADT *)ACPI_FindTable("FACP"); // FADT signature is "FACP"
+    if (fadt) {
+      Graphics_Print(100, 375, "FADT FOUND", 0x268BD2);
+    }
+
+    MADT *madt = (MADT *)ACPI_FindTable("APIC"); // MADT signature is "APIC"
+    if (madt) {
+      Graphics_Print(100, 400, "MADT FOUND", 0x268BD2);
+      Graphics_Print(100, 425, "LAPIC ADDR: ", 0x268BD2);
+      Graphics_PrintHex(250, 425, madt->LocalApicAddress, 0x268BD2);
+
+      // Initialize LAPIC
+      LAPIC_Init((void *)(uintptr_t)madt->LocalApicAddress);
+
+      // Calibrate Timer (get ticks per 10ms)
+      uint32_t ticks_10ms = LAPIC_CalibrateTimer();
+      // Initialize Timer for 1ms intervals
+      LAPIC_TimerInit(ticks_10ms / 10);
+
+      // Enable Interrupts
+      asm volatile("sti");
+      Graphics_Print(100, 450, "INTERRUPTS ENABLED", 0x268BD2);
+      Graphics_Print(100, 475, "TICKS/1MS: ", 0x268BD2);
+      Graphics_PrintHex(250, 475, ticks_10ms / 10, 0x268BD2);
+    }
+  } else {
+    Graphics_Print(100, 350, "RSDP NOT FOUND", 0xDC322F); // Red
+  }
+
+  while (1) {
+    Graphics_Print(100, 500, "TICKS: ", 0x268BD2);
+    Graphics_PrintHex(200, 500, Timer_GetTicks(), 0x268BD2);
+    for (int i = 0; i < 1000000; i++)
+      asm("pause"); // Simple delay for visibility
+  }
 }
 
 EFI_STATUS EFIAPI EfiMain(EFI_HANDLE ImageHandle,
@@ -154,6 +200,26 @@ EFI_STATUS EFIAPI EfiMain(EFI_HANDLE ImageHandle,
       ;
   }
 
+  // Find RSDP from ConfigurationTable
+  RSDP *rsdp = NULL;
+  EFI_GUID acpi_20_guid = ACPI_20_TABLE_GUID;
+  for (UINTN i = 0; i < SystemTable->NumberOfTableEntries; i++) {
+    EFI_CONFIGURATION_TABLE *table =
+        &((EFI_CONFIGURATION_TABLE *)SystemTable->ConfigurationTable)[i];
+    if (memcmp(&table->VendorGuid, &acpi_20_guid, sizeof(EFI_GUID)) == 0) {
+      rsdp = (RSDP *)table->VendorTable;
+      break;
+    }
+  }
+
+  if (rsdp) {
+    SystemTable->ConOut->OutputString(SystemTable->ConOut,
+                                      (uint16_t *)L"RSDP found!\r\n");
+  } else {
+    SystemTable->ConOut->OutputString(SystemTable->ConOut,
+                                      (uint16_t *)L"RSDP NOT found!\r\n");
+  }
+
   // Prepare for ExitBootServices
   UINTN map_size = 0;
   EFI_MEMORY_DESCRIPTOR *map = 0;
@@ -187,7 +253,7 @@ EFI_STATUS EFIAPI EfiMain(EFI_HANDLE ImageHandle,
              gop->Mode->Info->VerticalResolution,
              gop->Mode->Info->PixelsPerScanLine, map_size, map, map_key,
              desc_size, desc_ver, loaded_image->ImageBase,
-             loaded_image->ImageSize);
+             loaded_image->ImageSize, rsdp);
 
   return EFI_SUCCESS;
 }

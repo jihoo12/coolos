@@ -22,6 +22,11 @@ typedef struct {
   uint8_t Data4[8];
 } EFI_GUID;
 
+typedef struct {
+  EFI_GUID VendorGuid;
+  void *VendorTable;
+} EFI_CONFIGURATION_TABLE;
+
 // Protocols
 typedef struct _EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL;
 typedef struct _EFI_GRAPHICS_OUTPUT_PROTOCOL EFI_GRAPHICS_OUTPUT_PROTOCOL;
@@ -81,6 +86,9 @@ struct _EFI_GRAPHICS_OUTPUT_PROTOCOL {
 
 #define EFI_LOADED_IMAGE_PROTOCOL_GUID                                         \
   {0x5B1B31A1, 0x9562, 0x11D2, {0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}}
+
+#define ACPI_20_TABLE_GUID                                                     \
+  {0x8868e871, 0xe4f1, 0x11d3, {0xbc, 0x22, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81}}
 
 typedef struct {
   uint32_t Revision;

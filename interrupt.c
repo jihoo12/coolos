@@ -60,6 +60,8 @@ extern void isr18();
 extern void isr19();
 extern void isr20();
 extern void isr30();
+extern void isr64(); // Vector 0x40
+extern void isr_generic();
 
 void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
                  uint8_t type_attr) {
@@ -74,6 +76,13 @@ void IDT_SetGate(uint8_t vector, void *handler, uint16_t selector,
 }
 
 void ExceptionHandler(InterruptFrame *frame) {
+  if (frame->int_no == 64) {
+    // LAPIC Timer Interrupt
+    extern void Timer_Handler();
+    Timer_Handler();
+    return;
+  }
+
   Graphics_Clear(0x3B5998); // Blue screenish
   Graphics_Print(100, 100, "EXCEPTION OCCURRED!", 0xFFFFFF);
   Graphics_Print(100, 130, "Interrupt: ", 0xFFFFFF);
@@ -132,6 +141,13 @@ ISR_NOERR(18)
 ISR_NOERR(19)
 ISR_NOERR(20)
 ISR_ERR(30)
+ISR_NOERR(64) // Vector 0x40
+
+asm(".global isr_generic\n"
+    "isr_generic:\n"
+    "  pushq $0\n"
+    "  pushq $255\n" // Generic flag
+    "  jmp isr_common\n");
 
 asm("isr_common:\n"
     "  pushq %rax\n"
@@ -175,10 +191,7 @@ asm("isr_common:\n"
 
 void IDT_Init() {
   for (int i = 0; i < 256; i++) {
-    // Zero out
-    uint64_t *ptr = (uint64_t *)&idt[i];
-    ptr[0] = 0;
-    ptr[1] = 0;
+    IDT_SetGate(i, isr_generic, KERNEL_CODE_SEL, 0x8E);
   }
 
   // Type 0x8E = 1000 1110 (Present, DPL 0, Interrupt Gate)
@@ -204,6 +217,7 @@ void IDT_Init() {
   IDT_SetGate(19, isr19, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(20, isr20, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(30, isr30, KERNEL_CODE_SEL, 0x8E);
+  IDT_SetGate(64, isr64, KERNEL_CODE_SEL, 0x8E); // Vector 0x40
 
   idt_ptr.limit = sizeof(idt) - 1;
   idt_ptr.base = (uint64_t)&idt;

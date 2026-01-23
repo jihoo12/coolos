@@ -14,10 +14,16 @@ void PageAllocator_Init(EFI_MEMORY_DESCRIPTOR *map, UINTN map_size,
   void *map_end = (void *)((uint8_t *)map + map_size);
 
   while ((void *)entry < map_end) {
+    uint64_t last_page = (entry->PhysicalStart +
+                          entry->NumberOfPages * PAGE_SIZE + PAGE_SIZE - 1) /
+                         PAGE_SIZE;
+    if (last_page > total_pages && last_page < MAX_PAGES) {
+      total_pages = last_page;
+    }
+
     if (entry->Type == EfiConventionalMemory ||
         entry->Type == EfiBootServicesCode ||
-        entry->Type == EfiBootServicesData || entry->Type == EfiLoaderCode ||
-        entry->Type == EfiLoaderData) {
+        entry->Type == EfiBootServicesData) {
       uint64_t start_page = entry->PhysicalStart / PAGE_SIZE;
       uint64_t num_pages = entry->NumberOfPages;
 
@@ -25,8 +31,6 @@ void PageAllocator_Init(EFI_MEMORY_DESCRIPTOR *map, UINTN map_size,
         uint64_t page = start_page + i;
         if (page < MAX_PAGES) {
           bitmap[page / 8] &= ~(1 << (page % 8));
-          if (page >= total_pages)
-            total_pages = page + 1;
         }
       }
     }
@@ -150,7 +154,12 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
   while ((void *)entry < map_end) {
     if (entry->Type == EfiConventionalMemory || entry->Type == EfiLoaderCode ||
         entry->Type == EfiLoaderData || entry->Type == EfiBootServicesCode ||
-        entry->Type == EfiBootServicesData) {
+        entry->Type == EfiBootServicesData ||
+        entry->Type == EfiRuntimeServicesCode ||
+        entry->Type == EfiRuntimeServicesData ||
+        entry->Type == EfiACPIReclaimMemory ||
+        entry->Type == EfiACPIMemoryNVS || entry->Type == EfiMemoryMappedIO ||
+        entry->Type == EfiMemoryMappedIOPortSpace) {
       for (uint64_t addr = entry->PhysicalStart;
            addr < entry->PhysicalStart + entry->NumberOfPages * PAGE_SIZE;
            addr += PAGE_SIZE) {
@@ -166,7 +175,12 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
     PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
   }
 
-  // 3. Map Stack (rough estimate, 1MB around current RSP)
+  // 3. Map LAPIC (usually 0xFEE00000) and IOAPIC (usually 0xFEC00000)
+  for (uint64_t addr = 0xFEC00000; addr < 0xFEF00000; addr += PAGE_SIZE) {
+    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+  }
+
+  // 4. Map Stack (rough estimate, 1MB around current RSP)
   uint64_t rsp;
   asm volatile("mov %%rsp, %0" : "=r"(rsp));
   for (uint64_t addr = (rsp & ~0xFFFFFULL);
