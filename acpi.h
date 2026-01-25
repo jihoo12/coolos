@@ -96,6 +96,38 @@ typedef struct {
   uint8_t InterruptControllers[];
 } __attribute__((packed)) MADT;
 
+#define MADT_TYPE_LAPIC 0
+#define MADT_TYPE_IOAPIC 1
+#define MADT_TYPE_ISO 2
+
+typedef struct {
+  uint8_t Type;
+  uint8_t Length;
+} __attribute__((packed)) MADT_EntryHeader;
+
+typedef struct {
+  MADT_EntryHeader Header;
+  uint8_t ProcessorId;
+  uint8_t ApicId;
+  uint32_t Flags;
+} __attribute__((packed)) MADT_LocalApic;
+
+typedef struct {
+  MADT_EntryHeader Header;
+  uint8_t IoApicId;
+  uint8_t Reserved;
+  uint32_t IoApicAddress;
+  uint32_t GlobalSystemInterruptBase;
+} __attribute__((packed)) MADT_IoApic;
+
+typedef struct {
+  MADT_EntryHeader Header;
+  uint8_t Bus;
+  uint8_t Source;
+  uint32_t GlobalSystemInterrupt;
+  uint16_t Flags;
+} __attribute__((packed)) MADT_InterruptOverride;
+
 void ACPI_Init(RSDP *rsdp);
 void *ACPI_FindTable(const char *signature);
 

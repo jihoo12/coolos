@@ -72,6 +72,7 @@ extern void isr28();
 extern void isr29();
 extern void isr30();
 extern void isr31();
+extern void isr33(); // Vector 0x21
 extern void isr64(); // Vector 0x40
 extern void isr_generic();
 
@@ -91,10 +92,11 @@ void Interrupt_RegisterHandler(uint8_t vector, InterruptHandler handler) {
   handler_table[vector] = handler;
 }
 
-void ExceptionHandler(InterruptFrame *frame) {
+uintptr_t ExceptionHandler(InterruptFrame *frame) {
   if (handler_table[frame->int_no]) {
-    handler_table[frame->int_no](frame);
-    return;
+    InterruptFrame *f = frame;
+    handler_table[frame->int_no](&f);
+    return (uintptr_t)f;
   }
 
   Graphics_Clear(0x3B5998); // Blue screenish
@@ -117,6 +119,8 @@ void ExceptionHandler(InterruptFrame *frame) {
 
   while (1)
     asm("hlt");
+
+  return (uintptr_t)frame;
 }
 
 // Assembly stubs
@@ -165,6 +169,7 @@ ISR_NOERR(28)
 ISR_ERR(29)
 ISR_ERR(30)
 ISR_NOERR(31)
+ISR_NOERR(33) // Vector 0x21
 
 ISR_NOERR(64) // Vector 0x40
 
@@ -195,7 +200,7 @@ asm("isr_common:\n"
     "  andq $-16, %rsp\n" // 16-byte align
     "  subq $32, %rsp\n"  // Shadow space for Windows ABI
     "  call ExceptionHandler\n"
-    "  movq %rbp, %rsp\n" // Restore RSP
+    "  movq %rax, %rsp\n" // Use return value as new RSP
     "  popq %r15\n"
     "  popq %r14\n"
     "  popq %r13\n"
@@ -254,7 +259,8 @@ void IDT_Init() {
   IDT_SetGate(30, isr30, KERNEL_CODE_SEL, 0x8E);
   IDT_SetGate(31, isr31, KERNEL_CODE_SEL, 0x8E);
 
-  IDT_SetGate(64, isr64, KERNEL_CODE_SEL, 0x8E); // Vector 0x40
+  IDT_SetGate(33, isr33, KERNEL_CODE_SEL, 0x8E); // Vector 0x21 (Keyboard)
+  IDT_SetGate(64, isr64, KERNEL_CODE_SEL, 0x8E); // Vector 0x40 (Timer)
 
   idt_ptr.limit = sizeof(idt) - 1;
   idt_ptr.base = (uint64_t)&idt;

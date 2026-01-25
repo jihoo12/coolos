@@ -4,8 +4,11 @@
 #include "gdt.h"
 #include "graphics.h"
 #include "interrupt.h"
+#include "ioapic.h"
+#include "keyboard.h"
 #include "libc.h"
 #include "memory.h"
+#include "schedule.h"
 #include "timer.h"
 
 // Helper to print a hex number (very primitive)
@@ -19,6 +22,18 @@ void PrintHex(EFI_SYSTEM_TABLE *SystemTable, uint64_t val) {
   }
   out[18] = 0;
   SystemTable->ConOut->OutputString(SystemTable->ConOut, out);
+}
+
+void TaskA() {
+  while (1) {
+    Graphics_Print(400, 100, "TASK A RUNNING ", 0x00FFFF);
+  }
+}
+
+void TaskB() {
+  while (1) {
+    Graphics_Print(400, 130, "TASK B RUNNING ", 0xFFFF00);
+  }
 }
 
 // Simple KernelMain function
@@ -120,11 +135,37 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
       // Register Timer Handler
       Interrupt_RegisterHandler(INT_TIMER, Timer_Handler);
+      // Register Keyboard Handler
+      Interrupt_RegisterHandler(INT_KEYBOARD, Keyboard_Handler);
 
       // Calibrate Timer (get ticks per 10ms)
       uint32_t ticks_10ms = LAPIC_CalibrateTimer();
       // Initialize Timer for 1ms intervals
       LAPIC_TimerInit(ticks_10ms / 10);
+
+      // Initialize IO APIC and route Keyboard (IRQ 1)
+      // Find IO APIC in MADT entries
+      uint8_t *ptr = (uint8_t *)madt->InterruptControllers;
+      uint8_t *end = (uint8_t *)madt + madt->Header.Length;
+      while (ptr < end) {
+        MADT_EntryHeader *h = (MADT_EntryHeader *)ptr;
+        if (h->Type == MADT_TYPE_IOAPIC) {
+          MADT_IoApic *io = (MADT_IoApic *)ptr;
+          IOAPIC_Init((void *)(uintptr_t)io->IoApicAddress);
+          IOAPIC_MapIRQ(1, INT_KEYBOARD, 0); // Route IRQ 1 to 0x21
+          break;
+        }
+        ptr += h->Length;
+      }
+
+      // Initialize Scheduler and add tasks
+      Scheduler_Init();
+      void *stackA = PageAllocator_Alloc(1);
+      void *stackB = PageAllocator_Alloc(1);
+      if (stackA)
+        Scheduler_AddTask(TaskA, stackA);
+      if (stackB)
+        Scheduler_AddTask(TaskB, stackB);
 
       // Enable Interrupts
       asm volatile("sti");

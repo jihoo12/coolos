@@ -43,46 +43,49 @@ void *kmalloc(size_t size) {
 }
 
 void *kmalloc_aligned(size_t size, size_t alignment) {
-  if (alignment <= sizeof(HeapBlock)) {
+  if (alignment <= 16) {
     return kmalloc(size);
   }
 
-  // Very simple implementation: find a block, then adjust
-  // This is not the most efficient but works for now
-  HeapBlock *current = free_list;
-  while (current) {
-    if (current->free) {
-      uintptr_t raw_addr = (uintptr_t)current + sizeof(HeapBlock);
-      uintptr_t aligned_addr = (raw_addr + alignment - 1) & ~(alignment - 1);
-      size_t padding = aligned_addr - raw_addr;
+  // Over-allocate to ensure we can find an aligned address within the block
+  // We need enough space for:
+  // 1. The requested size
+  // 2. The alignment padding (up to alignment - 1)
+  // 3. A new HeapBlock header for the aligned block
+  size_t total_size = size + alignment + sizeof(HeapBlock);
+  void *ptr = kmalloc(total_size);
+  if (!ptr)
+    return NULL;
 
-      if (current->size >= size + padding) {
-        // If padding is large enough, split it
-        if (padding >= sizeof(HeapBlock) + 16) {
-          HeapBlock *new_block = (HeapBlock *)((uint8_t *)current + padding);
-          new_block->size = current->size - padding;
-          new_block->next = current->next;
-          new_block->prev = current;
-          new_block->free = 1;
+  uintptr_t raw_addr = (uintptr_t)ptr;
+  uintptr_t aligned_addr =
+      (raw_addr + sizeof(HeapBlock) + alignment - 1) & ~(alignment - 1);
 
-          if (new_block->next)
-            new_block->next->prev = new_block;
+  // We need to place a header right before aligned_addr
+  HeapBlock *original_block = (HeapBlock *)((uint8_t *)ptr - sizeof(HeapBlock));
+  HeapBlock *aligned_block = (HeapBlock *)(aligned_addr - sizeof(HeapBlock));
 
-          current->size = padding - sizeof(HeapBlock);
-          current->next = new_block;
+  if (aligned_block != original_block) {
+    // Split the block: [original_block (padding)] -> [aligned_block (data)]
+    aligned_block->size = original_block->size - ((uintptr_t)aligned_block -
+                                                  (uintptr_t)original_block);
+    aligned_block->next = original_block->next;
+    aligned_block->prev = original_block;
+    aligned_block->free = 0;
 
-          // Now allocate from new_block
-          return kmalloc(
-              size); // This is safe because new_block is exactly what we need
-        } else if (padding == 0) {
-          return kmalloc(size);
-        }
-        // If padding is small, we just waste it (or we could handle it better)
-      }
-    }
-    current = current->next;
+    if (aligned_block->next)
+      aligned_block->next->prev = aligned_block;
+
+    original_block->size = (uintptr_t)aligned_block -
+                           (uintptr_t)original_block - sizeof(HeapBlock);
+    original_block->next = aligned_block;
+    original_block->free = 1; // The padding is now free!
+
+    // Coalesce the padding if possible (optional but good)
+    kfree((void *)((uint8_t *)original_block + sizeof(HeapBlock)));
   }
-  return NULL;
+
+  return (void *)aligned_addr;
 }
 
 void kfree(void *ptr) {

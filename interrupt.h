@@ -27,7 +27,7 @@ typedef struct {
   uint64_t rip, cs, rflags, rsp, ss;
 } InterruptFrame;
 
-typedef void (*InterruptHandler)(InterruptFrame *frame);
+typedef void (*InterruptHandler)(InterruptFrame **frame);
 
 extern const char *exception_messages[];
 

@@ -49,7 +49,7 @@ void PageAllocator_MarkUsed(void *ptr, UINTN pages) {
 }
 
 void *PageAllocator_Alloc(UINTN pages) {
-  if (pages == 0)
+  if (pages == 0 || pages > total_pages)
     return NULL;
 
   for (uint64_t i = 1; i <= total_pages - pages; i++) {
