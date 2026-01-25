@@ -50,6 +50,11 @@ void Keyboard_Handler(InterruptFrame **frame_ptr) {
     return;
   }
 
+  if (scancode == 0x01) { // ESC Key Make
+    Scheduler_TerminateCurrentTask(frame_ptr);
+    return;
+  }
+
   if (scancode & 0x80) {
     // Key release
   } else {

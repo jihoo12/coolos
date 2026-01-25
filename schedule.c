@@ -85,3 +85,38 @@ void Scheduler_Switch(InterruptFrame **frame_ptr) {
   Graphics_Clear(0xEEE8D5);
   Graphics_Print(100, 500, "SWITCHED TO NEXT TASK     ", 0x00FF00);
 }
+
+void Scheduler_TerminateCurrentTask(InterruptFrame **frame_ptr) {
+  // Cannot terminate the main task (task 0)
+  if (current_task_index == 0) {
+    Graphics_Clear(0xEEE8D5);
+    Graphics_Print(100, 500, "CANNOT TERMINATE MAIN TASK", 0xFF0000);
+    return;
+  }
+
+  // Mark current task as inactive
+  tasks[current_task_index].active = 0;
+  Graphics_Clear(0xEEE8D5);
+  Graphics_Print(100, 500, "TASK TERMINATED            ", 0xFFFF00);
+
+  // Find next active task
+  int next_index = -1;
+  for (int i = 1; i <= total_tasks; i++) {
+    int idx = (current_task_index + i) % total_tasks;
+    if (tasks[idx].active) {
+      next_index = idx;
+      break;
+    }
+  }
+
+  // If no next task, go back to main task (task 0)
+  if (next_index == -1) {
+    next_index = 0;
+  }
+
+  // Move to next task
+  current_task_index = next_index;
+
+  // Restore next task RSP
+  *frame_ptr = (InterruptFrame *)tasks[current_task_index].rsp;
+}

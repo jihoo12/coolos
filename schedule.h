@@ -14,4 +14,5 @@ typedef struct {
 void Scheduler_Init();
 void Scheduler_AddTask(void (*fn)(), void *stack_base);
 void Scheduler_Switch(InterruptFrame **frame_ptr);
+void Scheduler_TerminateCurrentTask(InterruptFrame **frame_ptr);
 #endif
