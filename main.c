@@ -24,18 +24,19 @@ void PrintHex(EFI_SYSTEM_TABLE *SystemTable, uint64_t val) {
   SystemTable->ConOut->OutputString(SystemTable->ConOut, out);
 }
 
+/***
 void TaskA() {
   while (1) {
     Graphics_Print(400, 100, "TASK A RUNNING ", 0x00FFFF);
   }
 }
-
 void TaskB() {
   while (1) {
     Graphics_Print(400, 130, "TASK B RUNNING ", 0xFFFF00);
   }
 }
-
+  it's not neccessary currently
+**/
 // Simple KernelMain function
 void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
                 uint32_t ppsl, UINTN map_size, EFI_MEMORY_DESCRIPTOR *map,
@@ -160,12 +161,6 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
       // Initialize Scheduler and add tasks
       Scheduler_Init();
-      void *stackA = PageAllocator_Alloc(1);
-      void *stackB = PageAllocator_Alloc(1);
-      if (stackA)
-        Scheduler_AddTask(TaskA, stackA);
-      if (stackB)
-        Scheduler_AddTask(TaskB, stackB);
 
       // Enable Interrupts
       asm volatile("sti");
