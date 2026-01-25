@@ -101,14 +101,14 @@ uintptr_t ExceptionHandler(InterruptFrame *frame) {
 
   Graphics_Clear(0x3B5998); // Blue screenish
   Graphics_Print(100, 100, "EXCEPTION OCCURRED!", 0xFFFFFF);
-  Graphics_Print(100, 130, "Interrupt: ", 0xFFFFFF);
+  Graphics_Print(100, 130, "INTERRUPT: ", 0xFFFFFF);
   if (frame->int_no < 32) {
     Graphics_Print(250, 130, exception_messages[frame->int_no], 0xFFFFFF);
   } else {
     Graphics_PrintHex(250, 130, frame->int_no, 0xFFFFFF);
   }
 
-  Graphics_Print(100, 160, "Error Code: ", 0xFFFFFF);
+  Graphics_Print(100, 160, "ERROR CODE: ", 0xFFFFFF);
   Graphics_PrintHex(250, 160, frame->err_code, 0xFFFFFF);
   Graphics_Print(100, 190, "RIP: ", 0xFFFFFF);
   Graphics_PrintHex(250, 190, frame->rip, 0xFFFFFF);

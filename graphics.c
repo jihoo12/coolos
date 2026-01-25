@@ -14,6 +14,13 @@ void Graphics_Init(uint64_t fb_base, uint32_t width, uint32_t height,
   pixels_per_scanline = ppsl;
 }
 
+void Graphics_GetDimensions(uint32_t *width, uint32_t *height) {
+  if (width)
+    *width = screen_width;
+  if (height)
+    *height = screen_height;
+}
+
 void Graphics_PutChar(int x, int y, char c, uint32_t color) {
   uint32_t *fb = (uint32_t *)frame_buffer;
   const uint8_t *bitmap = font8x16[(uint8_t)c];

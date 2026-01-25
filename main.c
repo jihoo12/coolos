@@ -71,23 +71,40 @@ void SwitchToUserMode(void *entry_point, void *user_stack) {
 // ...
 // usermode entry point
 void UserMain() {
-  char *msg = "Hello from User Mode via Syscall!";
+  char *msg = "HELLO WORLD FROM MY KERNEL!\n";
+  char *msg1 = "HELLO FROM USER MODE VIA SYSCALL!\n";
+  char *msg2 = "NICE TO MEET YOU!";
   // syscall(SYSCALL_PRINT, msg, color)
   // RAX = 1
   // RDI = msg
   // RSI = color
   // RCX and R11 are clobbered
   asm volatile("mov $0, %%rax\n"
+               "mov $0x002b36,%%rdi\n"
                "syscall\n"
                :
                :
                : "rax", "rdi", "rsi", "rcx", "r11");
   asm volatile("mov $1, %%rax\n"
                "mov %0, %%rdi\n"
-               "mov $0x00FF00, %%rsi\n"
+               "mov $0x93a1a1, %%rsi\n"
                "syscall\n"
                :
                : "r"(msg)
+               : "rax", "rdi", "rsi", "rcx", "r11");
+  asm volatile("mov $1, %%rax\n"
+               "mov %0, %%rdi\n"
+               "mov $0x93a1a1, %%rsi\n"
+               "syscall\n"
+               :
+               : "r"(msg1)
+               : "rax", "rdi", "rsi", "rcx", "r11");
+  asm volatile("mov $1, %%rax\n"
+               "mov %0, %%rdi\n"
+               "mov $0x93a1a1, %%rsi\n"
+               "syscall\n"
+               :
+               : "r"(msg2)
                : "rax", "rdi", "rsi", "rcx", "r11");
 
   while (1) {
@@ -133,8 +150,8 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
     Heap_Init(heap_addr, 4096 * 4096);
   }
 
-  Graphics_Clear(0xEEE8D5);
-  Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2);
+  // Graphics_Clear(0xEEE8D5);
+  // Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2);
 
   // ... (Rest of existing output logic) ...
 
@@ -167,7 +184,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       asm volatile("sti");
 
       // --- RING 3 SWITCHING ---
-      Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
+      // Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
 
       // 1. Setup Kernel Stack for Interrupts (RSP0 in TSS)
       // When interrupt occurs in Ring 3, CPU switches to Ring 0 and loads RSP
@@ -190,7 +207,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       }
 
       // 3. Switch to Ring 3
-      Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
+      // Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
       SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
 
       // Code below should NOT be reached

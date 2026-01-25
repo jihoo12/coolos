@@ -120,26 +120,54 @@ void Syscall_Init() {
   MSR_Write(MSR_SFMASK, 0x200);
 }
 
+static uint32_t console_x = 10;
+static uint32_t console_y = 10;
+
 uint64_t Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2,
                          uint64_t a3, uint64_t a4, uint64_t a5) {
   switch (sys_num) {
   case SYSCALL_CLEAR: {
-    Graphics_Clear(0xEEE8D5);
+    Graphics_Clear(a1);
+    console_x = 10;
+    console_y = 10;
     break;
   }
   case SYSCALL_PRINT: {
-    // a1 = string pointer (virtual address, but identity mapped currently)
+    // a1 = string pointer
     // a2 = length? Or null terminated.
     // a3 = color?
-    // Let's define: syscall(1, str_ptr, color)
     char *str = (char *)a1;
     uint32_t color = (uint32_t)a2;
 
-    // We don't have a console cursor position in headers globally yet.
-    // Just print at fixed location or append?
-    // Graphics_Print(x, y, str, color);
-    // Let's print at 200, 200 for now to prove it works.
-    Graphics_Print(200, 200, str, color);
+    uint32_t width = 0, height = 0;
+    Graphics_GetDimensions(&width, &height);
+    if (width == 0)
+      width = 800; // Fallback
+    if (height == 0)
+      height = 600;
+
+    while (*str) {
+      char c = *str;
+      if (c == '\n') {
+        console_x = 10;
+        console_y += 16;
+      } else if (c == '\r') {
+        console_x = 10;
+      } else {
+        Graphics_PutChar(console_x, console_y, c, color);
+        console_x += 8;
+        if (console_x >= width - 8) {
+          console_x = 10;
+          console_y += 16;
+        }
+      }
+
+      if (console_y >= height - 16) {
+        console_y = 10;
+        Graphics_Clear(0x000000); // Clear screen on wrap for now
+      }
+      str++;
+    }
     break;
   }
   case SYSCALL_EXEC: {
