@@ -9,8 +9,8 @@
 #include "libc.h"
 #include "memory.h"
 #include "schedule.h"
+#include "syscall.h" // Added include
 #include "timer.h"
-
 // Helper to print a hex number (very primitive)
 void PrintHex(EFI_SYSTEM_TABLE *SystemTable, uint64_t val) {
   uint16_t out[19];
@@ -67,14 +67,10 @@ void SwitchToUserMode(void *entry_point, void *user_stack) {
                : "rax", "memory");
 }
 
-#include "syscall.h" // Added include
-
-// ... (existing includes)
-
 // Switch to User Mode
 // ...
-
-void UserTask() {
+// usermode entry point
+void UserMain() {
   char *msg = "Hello from User Mode via Syscall!";
   // syscall(SYSCALL_PRINT, msg, color)
   // RAX = 1
@@ -190,7 +186,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
       // 3. Switch to Ring 3
       Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
-      SwitchToUserMode(UserTask, (void *)((uint64_t)user_stack + 4096));
+      SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
 
       // Code below should NOT be reached
       // Graphics_Print(100, 575, "UNREACHABLE CODE", 0xDC322F);
