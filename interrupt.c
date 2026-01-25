@@ -201,6 +201,8 @@ asm("isr_common:\n"
     "  subq $32, %rsp\n"  // Shadow space for Windows ABI
     "  call ExceptionHandler\n"
     "  movq %rax, %rsp\n" // Use return value as new RSP
+    "\n.global isr_restore\n"
+    "isr_restore:\n"
     "  popq %r15\n"
     "  popq %r14\n"
     "  popq %r13\n"

@@ -1,6 +1,9 @@
 #include "syscall.h"
 #include "gdt.h"
 #include "graphics.h"
+#include "interrupt.h"
+#include "memory.h"
+#include "schedule.h"
 #include <stdint.h>
 
 extern void syscall_entry();
@@ -17,7 +20,21 @@ uint64_t MSR_Read(uint32_t msr) {
   return ((uint64_t)high << 32) | low;
 }
 
+// Per-CPU data structure for GS segment
+typedef struct {
+  uint64_t user_rsp_scratch; // Offset 0
+  uint64_t kernel_stack;     // Offset 8 (Optional usage)
+} CpuData;
+
 void Syscall_Init() {
+  // 0. Setup Per-CPU Data for GS
+  CpuData *cpu_data = (CpuData *)PageAllocator_Alloc(1); // 1 Page
+  if (cpu_data) {
+    // Write the address of the structure to MSR_KERNEL_GS_BASE
+    // When executing 'swapgs' in syscall_entry, GS Base will point here.
+    MSR_Write(MSR_KERNEL_GS_BASE, (uint64_t)cpu_data);
+  }
+
   // 1. Enable SCE (System Call Extensions) in EFER
   uint64_t efer = MSR_Read(MSR_EFER);
   efer |= EFER_SCE;
@@ -103,9 +120,14 @@ void Syscall_Init() {
   MSR_Write(MSR_SFMASK, 0x200);
 }
 
-void Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2, uint64_t a3,
-                     uint64_t a4, uint64_t a5) {
-  if (sys_num == SYSCALL_PRINT) {
+uint64_t Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2,
+                         uint64_t a3, uint64_t a4, uint64_t a5) {
+  switch (sys_num) {
+  case SYSCALL_CLEAR: {
+    Graphics_Clear(0xEEE8D5);
+    break;
+  }
+  case SYSCALL_PRINT: {
     // a1 = string pointer (virtual address, but identity mapped currently)
     // a2 = length? Or null terminated.
     // a3 = color?
@@ -118,6 +140,41 @@ void Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2, uint64_t a3,
     // Graphics_Print(x, y, str, color);
     // Let's print at 200, 200 for now to prove it works.
     Graphics_Print(200, 200, str, color);
-    Graphics_Print(200, 220, "SYSCALL SUCCESS", 0x00FF00); // Debug
+    break;
   }
+  case SYSCALL_EXEC: {
+    // a1 = function pointer
+    // a2 = stack pages count
+    void *stack = PageAllocator_Alloc(a2);
+    if (!stack) {
+      break;
+    }
+    void (*func_ptr)() = (void (*)())a1;
+    // Use Scheduler_AddUserTask to run as Ring 3 with correct stack management
+    Scheduler_AddUserTask(func_ptr, stack, a2);
+
+    break;
+  }
+  case SYSCALL_TERMINATE: {
+    // Terminate current task and switch to next
+    // We need to pass a pointer to a frame pointer, but we don't care about
+    // saving current frame. However, Scheduler_TerminateCurrentTask updates the
+    // *pointer* to the NEW frame.
+
+    InterruptFrame *new_rsp = NULL;
+    // We pass address of new_rsp. Scheduler will write the new task's RSP to
+    // new_rsp.
+    Scheduler_TerminateCurrentTask(&new_rsp);
+
+    // Return the new RSP to assembly wrapper, which will switch stack and jump
+    // to isr_restore
+    return (uint64_t)new_rsp;
+  }
+  default: {
+    Graphics_Clear(0xEEE8D5);
+    Graphics_Print(100, 100, "SYSCALL NOT IMPLEMENTED", 0x268BD2);
+    break;
+  }
+  }
+  return 0; // 0 means no context switch, return normally via sysretq
 }

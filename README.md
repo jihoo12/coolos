@@ -6,6 +6,18 @@ CoolOS is a toy operating system written from scratch, focusing on **UEFI boot**
 
 - **UEFI Boot**: Bootstrapped via UEFI `EfiMain` using `clang` and `lld`.
 - **Graphics**: Basic VGA text and hex output via UEFI Graphics Output Protocol (GOP).
+- **Multitasking**:
+  - Round-robin scheduler.
+  - Support for Kernel and User Mode (Ring 3) tasks.
+  - Context switching via **CapsLock**.
+- **System Calls**:
+  - `SYSCALL_CLEAR` (0): Clear the screen.
+  - `SYSCALL_PRINT` (1): Print string to screen.
+  - `SYSCALL_EXEC` (2): Execute a new task (Thread creation).
+  - `SYSCALL_TERMINATE` (3): Terminate current task.
+- **Input**:
+  - PS/2 Keyboard support.
+  - Interactive task control.
 - **Memory Management**:
   - Bitmap-based physical page allocator.
   - 4-level paging support.
@@ -16,6 +28,13 @@ CoolOS is a toy operating system written from scratch, focusing on **UEFI boot**
   - APIC (Advanced Programmable Interrupt Controller) & Timer support.
   - Basic Heap Allocator (`kmalloc`, `kfree`, aligned allocations).
 - **Custom Libc**: Minimal freestanding C library implementation (memory operations, etc.).
+
+## 🎮 Controls
+
+| Key | Action |
+| :--- | :--- |
+| **CapsLock** | Switch between active tasks (Round-Robin). |
+| **ESC** | Terminate the current task. |
 
 ## 🛠️ Prerequisites
 
@@ -50,6 +69,9 @@ chmod +x run.sh
 | File | Description |
 | :--- | :--- |
 | `main.c` | Kernel entry point and initialization logic. |
+| `syscall.c/h` | System Call implementation and handler. |
+| `schedule.c/h` | Round-robin scheduler and task management. |
+| `keyboard.c/h` | PS/2 Keyboard driver and input handling. |
 | `memory.c/h` | Physical page allocator and page table management. |
 | `graphics.c/h` | Framebuffer-based graphics primitives. |
 | `font.c/h` | Simple bitmap font for text rendering. |
@@ -61,4 +83,3 @@ chmod +x run.sh
 | `libc.c/h` | Minimal freestanding C library functions. |
 | `gdt.c/h` | Segment descriptor table setup. |
 | `efi.h` | UEFI protocol and structure definitions. |
-

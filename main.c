@@ -77,6 +77,11 @@ void UserMain() {
   // RDI = msg
   // RSI = color
   // RCX and R11 are clobbered
+  asm volatile("mov $0, %%rax\n"
+               "syscall\n"
+               :
+               :
+               : "rax", "rdi", "rsi", "rcx", "r11");
   asm volatile("mov $1, %%rax\n"
                "mov %0, %%rdi\n"
                "mov $0x00FF00, %%rsi\n"
