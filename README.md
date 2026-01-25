@@ -3,7 +3,7 @@
 CoolOS is a toy operating system written from scratch, focusing on **UEFI boot** and **x86_64 architecture**. It serves as a learning project to understand low-level system programming, memory management, and hardware interfacing.
 
 <p align="center">
- <img src = "./Screenshot_2026-01-25_20-46-21.png">
+ <img src = "./hello.png">
 </p>
 
 ## 🚀 Features
