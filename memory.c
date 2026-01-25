@@ -97,7 +97,9 @@ static PageTable *GetOrCreateTable(PageTable *table, int index) {
     new_table->entries[i] = 0;
   }
 
-  table->entries[index] = (uint64_t)new_table | PAGE_PRESENT | PAGE_WRITABLE;
+  // Allow User Access in intermediate tables
+  table->entries[index] =
+      (uint64_t)new_table | PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER;
   return new_table;
 }
 
@@ -163,7 +165,9 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
       for (uint64_t addr = entry->PhysicalStart;
            addr < entry->PhysicalStart + entry->NumberOfPages * PAGE_SIZE;
            addr += PAGE_SIZE) {
-        PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+        // Map with User permissions
+        PageTable_Map(pml4, (void *)addr, (void *)addr,
+                      PAGE_WRITABLE | PAGE_USER);
       }
     }
     entry = (EFI_MEMORY_DESCRIPTOR *)((uint8_t *)entry + desc_size);
@@ -172,7 +176,7 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
   // 2. Map Framebuffer
   for (uint64_t addr = (uint64_t)fb_base; addr < (uint64_t)fb_base + fb_size;
        addr += PAGE_SIZE) {
-    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE | PAGE_USER);
   }
 
   // 3. Map LAPIC and IOAPIC (usually 0xFEC00000)
@@ -189,7 +193,7 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
   asm volatile("mov %%rsp, %0" : "=r"(rsp));
   for (uint64_t addr = (rsp & ~0xFFFFFULL);
        addr < (rsp & ~0xFFFFFULL) + 0x100000; addr += PAGE_SIZE) {
-    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE);
+    PageTable_Map(pml4, (void *)addr, (void *)addr, PAGE_WRITABLE | PAGE_USER);
   }
 
   // Load PML4 into CR3

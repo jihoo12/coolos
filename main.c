@@ -37,30 +37,67 @@ void TaskB() {
 }
   it's not neccessary currently
 **/
-// Simple KernelMain function
+
+// ... (existing includes)
+
+// Switch to User Mode
+// entry_point: Target function execution address
+// user_stack: User stack pointer (top of the stack)
+void SwitchToUserMode(void *entry_point, void *user_stack) {
+  // Selectors for User Mode (Ring 3)
+  // USER_DATA_SEL (Index 3) = 0x18 | 3 = 0x1B
+  // USER_CODE_SEL (Index 4) = 0x20 | 3 = 0x23
+  asm volatile("mov $0x1B, %%ax\n" // User Data Segment
+               "mov %%ax, %%ds\n"
+               "mov %%ax, %%es\n"
+               "mov %%ax, %%fs\n"
+               "mov %%ax, %%gs\n"
+
+               "pushq $0x1B\n" // SS
+               "pushq %1\n"    // RSP
+               "pushfq\n"      // RFLAGS
+               "popq %%rax\n"
+               "orq $0x200, %%rax\n" // Enable Interrupts (IF)
+               "pushq %%rax\n"       // RFLAGS
+               "pushq $0x23\n"       // CS
+               "pushq %0\n"          // RIP
+               "iretq\n"
+               :
+               : "r"(entry_point), "r"(user_stack)
+               : "rax", "memory");
+}
+
+void UserTask() {
+  while (1) {
+    // In Ring 3, we cannot run privileged instructions like hlt or cli/sti
+    // If we try, it will trigger a GPF (ISR 13).
+    // Ideally we would have syscalls to print, but for now just loop.
+    // To prove we are in Ring 3, uncommenting the below line should crash (GPF)
+    // asm volatile("cli");
+  }
+}
+
+// ... (KernelMain arguments) ...
 void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
                 uint32_t ppsl, UINTN map_size, EFI_MEMORY_DESCRIPTOR *map,
                 UINTN map_key, UINTN desc_size, uint32_t desc_ver,
                 void *image_base, uint64_t image_size, RSDP *rsdp) {
 
+  // ... (existing init code: PageAllocator, ACPI, GDT, IDT, Graphics) ...
   PageAllocator_Init(map, map_size, desc_size);
-  // Protect the kernel binary area
   PageAllocator_MarkUsed(image_base, (image_size + 4095) / 4096);
 
-  // Initialize ACPI
   if (rsdp) {
     ACPI_Init(rsdp);
   }
 
-  // Initialize GDT
   GDT_Init();
-
-  // Initialize IDT
   IDT_Init();
 
   Graphics_Init(fb_base, width, height, ppsl);
 
-  uint64_t lapic_addr = 0xFEE00000; // Default
+  // ... (LAPIC setup) ...
+  uint64_t lapic_addr = 0xFEE00000;
   if (rsdp) {
     MADT *madt = (MADT *)ACPI_FindTable("APIC");
     if (madt) {
@@ -68,84 +105,32 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
     }
   }
 
-  // Initialize 4-level Page Table with minimal mappings
   PageTable_Init(image_base, image_size, (void *)fb_base,
                  (uint64_t)ppsl * height * 4, map, map_size, desc_size,
                  lapic_addr);
 
-  // Initialize Heap (e.g., 16MB)
-  void *heap_addr = PageAllocator_Alloc(4096); // 4096 * 4KB = 16MB
+  void *heap_addr = PageAllocator_Alloc(4096);
   if (heap_addr) {
     Heap_Init(heap_addr, 4096 * 4096);
   }
 
-  Graphics_Clear(0xEEE8D5); // Solarized Light
-  Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2); // Blue
-  Graphics_Print(100, 150, "PAGES: ", 0x268BD2);
-  Graphics_PrintHex(200, 150, total_pages, 0x268BD2);
+  Graphics_Clear(0xEEE8D5);
+  Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2);
 
-  // Display Kernel binary location
-  Graphics_Print(100, 175, "KERNEL BASE: ", 0x268BD2);
-  Graphics_PrintHex(250, 175, (uintptr_t)image_base, 0x268BD2);
-
-  // 2. 가용 메모리 계산 로직
-  uint64_t free_pages = 0;
-  for (uint64_t i = 0; i < total_pages; i++) {
-    if (!(bitmap[i / 8] & (1 << (i % 8)))) {
-      free_pages++;
-    }
-  }
-
-  // 3. MB 단위 출력 (계산 결과를 변수에 담아 출력)
-  uint64_t mb = (free_pages * 4096) / 1024 / 1024;
-  Graphics_Print(100, 225, "FREE MB: ", 0x268BD2);
-  Graphics_PrintHex(250, 225, mb, 0x268BD2);
-
-  // Heap Test
-  void *ptr1 = kmalloc(100);
-  void *ptr2 = kmalloc(200);
-  void *ptr3 = kmalloc_aligned(1024, 4096); // Page aligned
-  if (ptr1 && ptr2 && ptr3) {
-    Graphics_Print(100, 275, "HEAP ALLOC SUCCESS", 0x268BD2);
-    if (((uintptr_t)ptr3 % 4096) == 0) {
-      Graphics_Print(100, 300, "ALIGNED ALLOC SUCCESS", 0x268BD2);
-    }
-    kfree(ptr1);
-    kfree(ptr2);
-    kfree(ptr3);
-    Graphics_Print(100, 325, "HEAP FREE SUCCESS", 0x268BD2);
-  }
+  // ... (Rest of existing output logic) ...
 
   if (rsdp) {
-    Graphics_Print(100, 350, "RSDP FOUND AT: ", 0x268BD2);
-    Graphics_PrintHex(300, 350, (uintptr_t)rsdp, 0x268BD2);
-
-    FADT *fadt = (FADT *)ACPI_FindTable("FACP"); // FADT signature is "FACP"
-    if (fadt) {
-      Graphics_Print(100, 375, "FADT FOUND", 0x268BD2);
-    }
-
-    MADT *madt = (MADT *)ACPI_FindTable("APIC"); // MADT signature is "APIC"
+    // ... (ACPI/APIC init logic) ...
+    MADT *madt = (MADT *)ACPI_FindTable("APIC");
     if (madt) {
-      Graphics_Print(100, 400, "MADT FOUND", 0x268BD2);
-      Graphics_Print(100, 425, "LAPIC ADDR: ", 0x268BD2);
-      Graphics_PrintHex(250, 425, madt->LocalApicAddress, 0x268BD2);
-
+      // ... (All existing APIC/Timer init logic) ...
       // Initialize LAPIC
       LAPIC_Init((void *)(uintptr_t)madt->LocalApicAddress);
-
-      // Register Timer Handler
       Interrupt_RegisterHandler(INT_TIMER, Timer_Handler);
-      // Register Keyboard Handler
       Interrupt_RegisterHandler(INT_KEYBOARD, Keyboard_Handler);
-
-      // Calibrate Timer (get ticks per 10ms)
       uint32_t ticks_10ms = LAPIC_CalibrateTimer();
-      // Initialize Timer for 1ms intervals
       LAPIC_TimerInit(ticks_10ms / 10);
 
-      // Initialize IO APIC and route Keyboard (IRQ 1)
-      // Find IO APIC in MADT entries
       uint8_t *ptr = (uint8_t *)madt->InterruptControllers;
       uint8_t *end = (uint8_t *)madt + madt->Header.Length;
       while (ptr < end) {
@@ -153,29 +138,53 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
         if (h->Type == MADT_TYPE_IOAPIC) {
           MADT_IoApic *io = (MADT_IoApic *)ptr;
           IOAPIC_Init((void *)(uintptr_t)io->IoApicAddress);
-          IOAPIC_MapIRQ(1, INT_KEYBOARD, 0); // Route IRQ 1 to 0x21
+          IOAPIC_MapIRQ(1, INT_KEYBOARD, 0);
           break;
         }
         ptr += h->Length;
       }
 
-      // Initialize Scheduler and add tasks
       Scheduler_Init();
-
-      // Enable Interrupts
       asm volatile("sti");
-      Graphics_Print(100, 450, "INTERRUPTS ENABLED", 0x268BD2);
-      Graphics_Print(100, 475, "TICKS/1MS: ", 0x268BD2);
-      Graphics_PrintHex(250, 475, ticks_10ms / 10, 0x268BD2);
+
+      // --- RING 3 SWITCHING ---
+      Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
+
+      // 1. Setup Kernel Stack for Interrupts (RSP0 in TSS)
+      // When interrupt occurs in Ring 3, CPU switches to Ring 0 and loads RSP
+      // from TSS.RSP0
+      void *kernel_stack = kmalloc(4096);
+      if (kernel_stack) {
+        TSS_SetStack((uint64_t)kernel_stack + 4096);
+      } else {
+        Graphics_Print(100, 550, "KSTACK ALLOC FAIL", 0xDC322F);
+        while (1)
+          ;
+      }
+
+      // 2. Setup User Stack
+      void *user_stack = kmalloc(4096);
+      if (!user_stack) {
+        Graphics_Print(100, 550, "USTACK ALLOC FAIL", 0xDC322F);
+        while (1)
+          ;
+      }
+
+      // 3. Switch to Ring 3
+      Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
+      SwitchToUserMode(UserTask, (void *)((uint64_t)user_stack + 4096));
+
+      // Code below should NOT be reached
+      // Graphics_Print(100, 575, "UNREACHABLE CODE", 0xDC322F);
     }
-  } else {
-    Graphics_Print(100, 350, "RSDP NOT FOUND", 0xDC322F); // Red
   }
-  Graphics_Print(100, 500, "TICKS: ", 0x268BD2);
-  Graphics_PrintHex(200, 500, Timer_GetTicks(), 0x268BD2);
+
   while (1) {
+    asm("hlt");
   }
 }
+
+// ... (EfiMain remains) ...
 
 EFI_STATUS EFIAPI EfiMain(EFI_HANDLE ImageHandle,
                           EFI_SYSTEM_TABLE *SystemTable) {

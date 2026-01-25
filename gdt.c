@@ -1,7 +1,9 @@
 #include "gdt.h"
+#include "libc.h" // For memset
 
-static GDTEntry gdt[3];
+static GDTEntry gdt[7];
 static GDTPointer gdt_ptr;
+static TSS tss;
 
 void GDT_SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access,
                   uint8_t gran) {
@@ -16,21 +18,45 @@ void GDT_SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access,
   gdt[index].access = access;
 }
 
+// System Entry is 16 bytes for 64-bit TSS
+void GDT_SetSystemEntry(int index, uint64_t base, uint32_t limit,
+                        uint8_t access, uint8_t gran) {
+  GDT_SetEntry(index, (uint32_t)base, limit, access, gran);
+
+  // High part of the 64-bit descriptor
+  struct SystemSegmentHigh {
+    uint32_t base_high;
+    uint32_t reserved;
+  } __attribute__((packed)) *high = (void *)&gdt[index + 1];
+
+  high->base_high = (uint32_t)(base >> 32);
+  high->reserved = 0;
+}
+
+void TSS_SetStack(uint64_t kstack) { tss.rsp0 = kstack; }
+
 void GDT_Init() {
+  // Clear TSS
+  memset(&tss, 0, sizeof(TSS));
+  tss.iomap_base = sizeof(TSS);
+
   // Null descriptor
   GDT_SetEntry(0, 0, 0, 0, 0);
 
   // Kernel Code Segment: Access 0x9A, Granularity 0xAF (64-bit)
-  // Access: Present(1), DPL(00), Type(1), Code(1), Conforming(0), Readable(1),
-  // Accessed(0) -> 1001 1010 = 0x9A Granularity: G(1), D(0), L(1), AVL(0) ->
-  // 1010 -> 0xA (+ limit high 0xF) -> 0xAF
   GDT_SetEntry(1, 0, 0xFFFFFFFF, 0x9A, 0xAF);
 
   // Kernel Data Segment: Access 0x92, Granularity 0xCF
-  // Access: Present(1), DPL(00), Type(1), Data(1), Expansion-direction(0),
-  // Writable(1), Accessed(0) -> 1001 0010 = 0x92 Granularity: G(1), D(1), L(0),
-  // AVL(0) -> 1100 -> 0xC
   GDT_SetEntry(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
+
+  // User Data Segment: Access 0xF2 (Present, Ring 3, Data, Writable)
+  GDT_SetEntry(3, 0, 0xFFFFFFFF, 0xF2, 0xCF);
+
+  // User Code Segment: Access 0xFA (Present, Ring 3, Code, Readable)
+  GDT_SetEntry(4, 0, 0xFFFFFFFF, 0xFA, 0xAF);
+
+  // TSS Segment: Access 0x89 (Present, Ring 0, Available TSS)
+  GDT_SetSystemEntry(5, (uint64_t)&tss, sizeof(TSS) - 1, 0x89, 0x00);
 
   gdt_ptr.limit = sizeof(gdt) - 1;
   gdt_ptr.base = (uint64_t)&gdt;
@@ -50,4 +76,7 @@ void GDT_Init() {
                :
                : "m"(gdt_ptr), "i"(KERNEL_CODE_SEL), "r"(KERNEL_DATA_SEL)
                : "rax", "memory");
+
+  // Load Task Register
+  asm volatile("ltr %%ax" : : "a"(TSS_SEL));
 }
