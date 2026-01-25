@@ -43,5 +43,6 @@ typedef struct {
 
 void GDT_Init();
 void TSS_SetStack(uint64_t kstack);
+extern TSS tss;
 
 #endif

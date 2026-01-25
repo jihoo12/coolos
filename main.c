@@ -67,13 +67,30 @@ void SwitchToUserMode(void *entry_point, void *user_stack) {
                : "rax", "memory");
 }
 
+#include "syscall.h" // Added include
+
+// ... (existing includes)
+
+// Switch to User Mode
+// ...
+
 void UserTask() {
+  char *msg = "Hello from User Mode via Syscall!";
+  // syscall(SYSCALL_PRINT, msg, color)
+  // RAX = 1
+  // RDI = msg
+  // RSI = color
+  // RCX and R11 are clobbered
+  asm volatile("mov $1, %%rax\n"
+               "mov %0, %%rdi\n"
+               "mov $0x00FF00, %%rsi\n"
+               "syscall\n"
+               :
+               : "r"(msg)
+               : "rax", "rdi", "rsi", "rcx", "r11");
+
   while (1) {
-    // In Ring 3, we cannot run privileged instructions like hlt or cli/sti
-    // If we try, it will trigger a GPF (ISR 13).
-    // Ideally we would have syscalls to print, but for now just loop.
-    // To prove we are in Ring 3, uncommenting the below line should crash (GPF)
-    // asm volatile("cli");
+    // Loop
   }
 }
 
@@ -93,6 +110,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
   GDT_Init();
   IDT_Init();
+  Syscall_Init();
 
   Graphics_Init(fb_base, width, height, ppsl);
 

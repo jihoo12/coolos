@@ -3,7 +3,7 @@
 
 static GDTEntry gdt[7];
 static GDTPointer gdt_ptr;
-static TSS tss;
+TSS tss;
 
 void GDT_SetEntry(int index, uint32_t base, uint32_t limit, uint8_t access,
                   uint8_t gran) {
