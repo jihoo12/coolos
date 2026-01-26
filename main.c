@@ -153,8 +153,8 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
     Heap_Init(heap_addr, 4096 * 4096);
   }
 
-  // Graphics_Clear(0xEEE8D5);
-  // Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2);
+  Graphics_Clear(0xEEE8D5);
+  Graphics_Print(100, 100, "HELLO FROM COOLOS KERNEL!", 0x268BD2);
 
   // ... (Rest of existing output logic) ...
 
@@ -189,13 +189,38 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       PCI_Init();
       PCI_Device *nvme = PCI_GetNVMeController();
       if (nvme) {
-        Graphics_Print(100, 600, "PCI: NVME FOUND", 0x268BD2);
+        NVMe_Init(nvme);
+
+        // Read 1 block (LBA 0)
+        uint8_t *read_buf = kmalloc(4096);
+        if (read_buf) {
+          memset(read_buf, 0, 4096);
+          NVMe_Read(1, 0, read_buf, 1);
+
+          // Convert first 16 bytes to hex string
+          char hex_msg[100];
+          char *hex_chars = "0123456789ABCDEF";
+          int pos = 0;
+
+          char *prefix = "NVME READ: ";
+          while (*prefix)
+            hex_msg[pos++] = *prefix++;
+
+          for (int i = 0; i < 16; i++) {
+            hex_msg[pos++] = hex_chars[(read_buf[i] >> 4) & 0xF];
+            hex_msg[pos++] = hex_chars[read_buf[i] & 0xF];
+            hex_msg[pos++] = ' ';
+          }
+          hex_msg[pos] = 0;
+
+          Graphics_Print(100, 680, hex_msg, 0xCB4B16);
+        }
       } else {
         Graphics_Print(100, 600, "PCI: NO NVME FOUND", 0xDC322F);
       }
 
       // --- RING 3 SWITCHING ---
-      // Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
+      Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
 
       // 1. Setup Kernel Stack for Interrupts (RSP0 in TSS)
       // When interrupt occurs in Ring 3, CPU switches to Ring 0 and loads RSP
@@ -218,10 +243,10 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       }
 
       // 3. Switch to Ring 3
-      // Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
+      Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
       SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
 
-      SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
+      // SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
 
       // Code below should NOT be reached
       // Graphics_Print(100, 575, "UNREACHABLE CODE", 0xDC322F);
@@ -231,13 +256,6 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
   // Use RSDP check or just unconditional PCI init if ACPI failed,
   // but let's do it after everything else to show it works independently
   // roughly
-  PCI_Init();
-  PCI_Device *nvme = PCI_GetNVMeController();
-  if (nvme) {
-    NVMe_Init(nvme);
-  } else {
-    Graphics_Print(100, 600, "PCI: NO NVME FOUND", 0xDC322F);
-  }
 
   while (1) {
     asm("hlt");
