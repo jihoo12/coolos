@@ -19,5 +19,9 @@ void Syscall_Init();
 #define SYSCALL_EXEC 2
 #define SYSCALL_TERMINATE 3
 #define SYSCALL_HALT 4
+#define SYSCALL_NVME_READ 5
+#define SYSCALL_NVME_WRITE 6
+#define SYSCALL_KMALLOC 7
+#define SYSCALL_KFREE 8
 
 #endif

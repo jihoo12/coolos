@@ -3,6 +3,7 @@
 #include "graphics.h"
 #include "interrupt.h"
 #include "memory.h"
+#include "nvme.h"
 #include "schedule.h"
 #include <stdint.h>
 
@@ -200,6 +201,32 @@ uint64_t Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2,
   }
   case SYSCALL_HALT: {
     asm volatile("hlt");
+  }
+  case SYSCALL_NVME_READ: {
+    // a1 = nsid (uint32)
+    // a2 = lba (uint64)
+    // a3 = buffer (ptr)
+    // a4 = count (uint32)
+    NVMe_Read((uint32_t)a1, (uint64_t)a2, (void *)a3, (uint32_t)a4);
+    break;
+  }
+  case SYSCALL_NVME_WRITE: {
+    // a1 = nsid (uint32)
+    // a2 = lba (uint64)
+    // a3 = buffer (ptr)
+    // a4 = count (uint32)
+    NVMe_Write((uint32_t)a1, (uint64_t)a2, (void *)a3, (uint32_t)a4);
+    break;
+  }
+  case SYSCALL_KMALLOC: {
+    // a1 = size (uint64)
+    void *ptr = kmalloc((size_t)a1);
+    a1 = (uint64_t)ptr;
+  }
+  case SYSCALL_KFREE: {
+    // a1 = ptr (void*)
+    kfree((void *)a1);
+    break;
   }
   default: {
     Graphics_Clear(0xEEE8D5);

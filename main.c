@@ -192,6 +192,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
         NVMe_Init(nvme);
 
         // Write 1 block (LBA 0) with pattern
+        /***
         uint8_t *write_buf = kmalloc(4096);
         if (write_buf) {
           char *msg = "COOLOS NVME TEST WRITE PATTERN";
@@ -229,6 +230,7 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
 
           Graphics_Print(100, 680, hex_msg, 0xCB4B16);
         }
+        ***/
       } else {
         Graphics_Print(100, 600, "PCI: NO NVME FOUND", 0xDC322F);
       }
