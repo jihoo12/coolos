@@ -191,6 +191,20 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       if (nvme) {
         NVMe_Init(nvme);
 
+        // Write 1 block (LBA 0) with pattern
+        uint8_t *write_buf = kmalloc(4096);
+        if (write_buf) {
+          char *msg = "COOLOS NVME TEST WRITE PATTERN";
+          memset(write_buf, 0, 4096);
+          int len = 0;
+          while (msg[len])
+            len++;
+          memcpy(write_buf, msg, len);
+
+          NVMe_Write(1, 0, write_buf, 1);
+          Graphics_Print(100, 660, "NVME WRITE: SENT", 0x268BD2);
+        }
+
         // Read 1 block (LBA 0)
         uint8_t *read_buf = kmalloc(4096);
         if (read_buf) {

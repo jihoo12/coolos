@@ -271,3 +271,30 @@ int NVMe_Read(uint32_t nsid, uint64_t lba, void *buffer, uint32_t count) {
 
   return 0; // Success
 }
+
+int NVMe_Write(uint32_t nsid, uint64_t lba, void *buffer, uint32_t count) {
+  NVMe_SQEntry cmd;
+  memset(&cmd, 0, sizeof(cmd));
+
+  // NVMe Write Opcode = 0x01
+  cmd.Opcode = NVME_OP_WRITE;
+  cmd.CommandID = 101; // Arbitrary
+  cmd.NSID = nsid;
+
+  // PRP 1
+  cmd.Prp1 = (uint64_t)(uintptr_t)buffer;
+
+  // CDW10: Starting LBA Low
+  cmd.Cdw10 = (uint32_t)lba;
+
+  // CDW11: Starting LBA High
+  cmd.Cdw11 = (uint32_t)(lba >> 32);
+
+  // CDW12: Number of Logical Blocks (0's based). So count-1.
+  cmd.Cdw12 = (count - 1) & 0xFFFF;
+
+  NVMe_SubmitCommand(&g_nvme_ctx.IOQueue, &cmd);
+  NVMe_WaitForCompletion(&g_nvme_ctx.IOQueue, 101);
+
+  return 0; // Success
+}

@@ -109,5 +109,6 @@ typedef struct {
 void NVMe_Init(PCI_Device *device);
 void NVMe_IdentifyController(NVMe_Context *ctx);
 int NVMe_Read(uint32_t nsid, uint64_t lba, void *buffer, uint32_t count);
+int NVMe_Write(uint32_t nsid, uint64_t lba, void *buffer, uint32_t count);
 
 #endif
