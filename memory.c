@@ -3,6 +3,7 @@
 
 uint8_t bitmap[MAX_PAGES / 8];
 uint64_t total_pages = 0;
+PageTable *g_kernel_pml4 = NULL;
 
 void PageAllocator_Init(EFI_MEMORY_DESCRIPTOR *map, UINTN map_size,
                         UINTN desc_size) {
@@ -146,6 +147,7 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
                     uint64_t fb_size, EFI_MEMORY_DESCRIPTOR *map,
                     UINTN map_size, UINTN desc_size, uint64_t lapic_addr) {
   PageTable *pml4 = (PageTable *)PageAllocator_Alloc(1);
+  g_kernel_pml4 = pml4;
   for (int i = 0; i < 512; i++)
     pml4->entries[i] = 0;
 
@@ -198,4 +200,17 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
 
   // Load PML4 into CR3
   asm volatile("mov %0, %%cr3" : : "r"(pml4) : "memory");
+}
+
+void Memory_MapMMIO(void *phys_addr, uint64_t size) {
+  if (!g_kernel_pml4)
+    return;
+  for (uint64_t addr = (uint64_t)phys_addr; addr < (uint64_t)phys_addr + size;
+       addr += PAGE_SIZE) {
+    // Map as Writable | User (so ring 3 can also access if needed, or just
+    // Writable)
+    PageTable_Map(g_kernel_pml4, (void *)addr, (void *)addr,
+                  PAGE_WRITABLE | PAGE_USER);
+    asm volatile("invlpg (%0)" : : "r"(addr) : "memory");
+  }
 }

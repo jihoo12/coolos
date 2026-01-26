@@ -7,38 +7,38 @@ static IDTEntry idt[256];
 static IDTPointer idt_ptr;
 static InterruptHandler handler_table[256];
 
-const char *exception_messages[] = {"Division By Zero",
-                                    "Debug",
-                                    "Non Maskable Interrupt",
-                                    "Breakpoint",
-                                    "Into Detected Overflow",
-                                    "Out of Bounds",
-                                    "Invalid Opcode",
-                                    "No Coprocessor",
-                                    "Double Fault",
-                                    "Coprocessor Segment Overrun",
-                                    "Bad TSS",
-                                    "Segment Not Present",
-                                    "Stack Fault",
-                                    "General Protection Fault",
-                                    "Page Fault",
-                                    "Unknown Interrupt",
-                                    "Coprocessor Fault",
-                                    "Alignment Check",
-                                    "Machine Check",
-                                    "SIMD Floating Point Exception",
-                                    "Virtualization Exception",
-                                    "Control Protection Exception", // 21
-                                    "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Reserved",
-                                    "Hypervisor Injection Exception", // 28
-                                    "VMM Communication Exception",    // 29
-                                    "Security Exception",             // 30
-                                    "Reserved"};
+const char *exception_messages[] = {"DIVISION BY ZERO",
+                                    "DEBUG",
+                                    "NON MASKABLE INTERRUPT",
+                                    "BREAKPOINT",
+                                    "INTO DETECTED OVERFLOW",
+                                    "OUT OF BOUNDS",
+                                    "INVALID OPCODE",
+                                    "NO COPROCESSOR",
+                                    "DOUBLE FAULT",
+                                    "COPROCESSOR SEGMENT OVERRUN",
+                                    "BAD TSS",
+                                    "SEGMENT NOT PRESENT",
+                                    "STACK FAULT",
+                                    "GENERAL PROTECTION FAULT",
+                                    "PAGE FAULT",
+                                    "UNKNOWN INTERRUPT",
+                                    "CO-PROCESSOR FAULT",
+                                    "ALIGNMENT CHECK",
+                                    "MACHINE CHECK",
+                                    "SIMD FLOATING POINT EXCEPTION",
+                                    "VIRTUALIZATION EXCEPTION",
+                                    "CONTROL PROTECTION EXCEPTION", // 21
+                                    "RESERVED",
+                                    "RESERVED",
+                                    "RESERVED",
+                                    "RESERVED",
+                                    "RESERVED",
+                                    "RESERVED",
+                                    "HYPervisor INJECTION EXCEPTION", // 28
+                                    "VMX COMMUNICATION EXCEPTION",    // 29
+                                    "SECURITY EXCEPTION",             // 30
+                                    "RESERVED"};
 
 extern void isr0();
 extern void isr1();
@@ -99,11 +99,17 @@ uintptr_t ExceptionHandler(InterruptFrame *frame) {
     return (uintptr_t)f;
   }
 
-  Graphics_Clear(0x3B5998); // Blue screenish
+  // Graphics_Clear(0x3B5998); // Blue screenish (Disabled to see debug logs)
   Graphics_Print(100, 100, "EXCEPTION OCCURRED!", 0xFFFFFF);
   Graphics_Print(100, 130, "INTERRUPT: ", 0xFFFFFF);
   if (frame->int_no < 32) {
     Graphics_Print(250, 130, exception_messages[frame->int_no], 0xFFFFFF);
+    if (frame->int_no == 14) { // Page Fault
+      uint64_t cr2;
+      asm volatile("mov %%cr2, %0" : "=r"(cr2));
+      Graphics_Print(100, 280, "CR2 (ADDR): ", 0xDC322F);
+      Graphics_PrintHex(250, 280, cr2, 0xDC322F);
+    }
   } else {
     Graphics_PrintHex(250, 130, frame->int_no, 0xFFFFFF);
   }

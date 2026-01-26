@@ -28,6 +28,7 @@ void PageTable_Init(void *kernel_base, uint64_t kernel_size, void *fb_base,
                     UINTN map_size, UINTN desc_size, uint64_t lapic_addr);
 void PageTable_Map(PageTable *pml4, void *virt, void *phys, uint64_t flags);
 void PageTable_UnMap(PageTable *pml4, void *virt);
+void Memory_MapMMIO(void *phys_addr, uint64_t size);
 
 #include "heap.h"
 

@@ -1,3 +1,4 @@
 main.efi
 boot/
 uefi.img
+nvme.img

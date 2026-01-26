@@ -18,4 +18,4 @@ cp main.efi boot/EFI/BOOT/BOOTX64.EFI
 # -bios: specify the UEFI firmware
 # -drive file=fat:rw:boot: use the 'boot' directory as a virtual FAT drive
 # Remove -nographic to see the GOP output (requires X11/Wayland)
-qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -drive file=fat:rw:boot,format=raw -vga std
+qemu-system-x86_64 -bios /usr/share/ovmf/OVMF.fd -drive file=fat:rw:boot,format=raw -vga std -drive file=nvme.img,if=none,id=mynvme,format=raw -device nvme,serial=coolos_nvme,drive=mynvme

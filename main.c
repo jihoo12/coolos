@@ -8,6 +8,8 @@
 #include "keyboard.h"
 #include "libc.h"
 #include "memory.h"
+#include "nvme.h"
+#include "pci.h"
 #include "schedule.h"
 #include "syscall.h" // Added include
 #include "timer.h"
@@ -79,12 +81,12 @@ void UserMain() {
   // RDI = msg
   // RSI = color
   // RCX and R11 are clobbered
-  asm volatile("mov $0, %%rax\n"
-               "mov $0x002b36,%%rdi\n"
-               "syscall\n"
-               :
-               :
-               : "rax", "rdi", "rsi", "rcx", "r11");
+  // asm volatile("mov $0, %%rax\n"
+  //           "mov $0x002b36,%%rdi\n"
+  //           "syscall\n"
+  //           :
+  //           :
+  //           : "rax", "rdi", "rsi", "rcx", "r11");
   asm volatile("mov $1, %%rax\n"
                "mov %0, %%rdi\n"
                "mov $0x93a1a1, %%rsi\n"
@@ -184,6 +186,14 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       Scheduler_Init();
       asm volatile("sti");
 
+      PCI_Init();
+      PCI_Device *nvme = PCI_GetNVMeController();
+      if (nvme) {
+        Graphics_Print(100, 600, "PCI: NVME FOUND", 0x268BD2);
+      } else {
+        Graphics_Print(100, 600, "PCI: NO NVME FOUND", 0xDC322F);
+      }
+
       // --- RING 3 SWITCHING ---
       // Graphics_Print(100, 525, "PREPARING USER MODE...", 0x268BD2);
 
@@ -211,9 +221,22 @@ void KernelMain(EFI_PHYSICAL_ADDRESS fb_base, uint32_t width, uint32_t height,
       // Graphics_Print(100, 550, "SWITCHING TO RING 3...", 0x859900); // Green
       SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
 
+      SwitchToUserMode(UserMain, (void *)((uint64_t)user_stack + 4096));
+
       // Code below should NOT be reached
       // Graphics_Print(100, 575, "UNREACHABLE CODE", 0xDC322F);
     }
+  }
+
+  // Use RSDP check or just unconditional PCI init if ACPI failed,
+  // but let's do it after everything else to show it works independently
+  // roughly
+  PCI_Init();
+  PCI_Device *nvme = PCI_GetNVMeController();
+  if (nvme) {
+    NVMe_Init(nvme);
+  } else {
+    Graphics_Print(100, 600, "PCI: NO NVME FOUND", 0xDC322F);
   }
 
   while (1) {
