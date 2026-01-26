@@ -18,5 +18,6 @@ void Syscall_Init();
 #define SYSCALL_PRINT 1
 #define SYSCALL_EXEC 2
 #define SYSCALL_TERMINATE 3
+#define SYSCALL_HALT 4
 
 #endif

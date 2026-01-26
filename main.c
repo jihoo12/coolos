@@ -106,10 +106,11 @@ void UserMain() {
                :
                : "r"(msg2)
                : "rax", "rdi", "rsi", "rcx", "r11");
-
-  while (1) {
-    // Loop
-  }
+  asm volatile("mov $4, %%rax\n"
+               "syscall\n"
+               :
+               :
+               : "rax");
 }
 
 // ... (KernelMain arguments) ...

@@ -198,6 +198,9 @@ uint64_t Syscall_Handler(uint64_t sys_num, uint64_t a1, uint64_t a2,
     // to isr_restore
     return (uint64_t)new_rsp;
   }
+  case SYSCALL_HALT: {
+    asm volatile("hlt");
+  }
   default: {
     Graphics_Clear(0xEEE8D5);
     Graphics_Print(100, 100, "SYSCALL NOT IMPLEMENTED", 0x268BD2);
